@@ -1,0 +1,6 @@
+# 编译产物
+*.o
+*.d
+/kernel
+/kernel.img
+/boot/bootblock
