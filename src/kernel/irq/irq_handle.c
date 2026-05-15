@@ -12,12 +12,25 @@ TrapFrame *irq_handle(TrapFrame *tf) // 处理 IRQ 中断的函数，参数 tf �
 
 	if (irq < 1000)
 	{
-		// exception
-		cli();
-		printk("Unexpected exception #%d\n", irq);
-		printk(" errorcode %x\n", tf->err);
-		printk(" location  %d:%x, esp %x\n", tf->cs, tf->eip, tf);
-		panic("unexpected exception");
+		if (irq == 0x80)
+		{
+			// 系统调用：进程主动让出 CPU（信号量阻塞/退出）
+			if (current != NULL)
+			{
+				current->tf = tf; // 保存当前进程的 TrapFrame
+			}
+			schedule();
+			tf = current->tf;
+		}
+		else
+		{
+			// 真正的异常
+			cli();
+			printk("Unexpected exception #%d\n", irq);
+			printk(" errorcode %x\n", tf->err);
+			printk(" location  %d:%x, esp %x\n", tf->cs, tf->eip, tf);
+			panic("unexpected exception");
+		}
 	}
 	else if (irq >= 1000)
 	{

@@ -3,30 +3,53 @@
 #include "vm.h"
 #include "irq.h"
 #include "proc.h"
+#include "sem.h"
 
-void proc_a_entry(void) {
-    while (TRUE) {
-        printk("[ProcA] pid=%d run=%d prio=%d ctr=%d\n",
-               current->pid, current->run_count,
-               current->priority, current->counter);
-        wait_intr();
+#define BUFFER_SIZE 5
+
+struct Semaphore mutex, empty, full;
+int buffer[BUFFER_SIZE];
+int in = 0, out = 0;
+int produced = 0, consumed = 0;
+
+void producer_entry(void) {
+    int i;
+    for (i = 0; i < 4; i++) {
+        sem_wait(&empty);        // 等空位
+        sem_wait(&mutex);        // 进临界区
+
+        buffer[in] = produced;
+        printk("[P%d] produce #%d -> buf[%d]\n",
+               current->pid, produced, in);
+        in = (in + 1) % BUFFER_SIZE;
+        produced++;
+
+        sem_signal(&mutex);      // 出临界区
+        sem_signal(&full);       // 通知"有货了"
     }
+    printk("[P%d] producer finished\n", current->pid);
+    current->state = STOPED;
+    asm volatile("int $0x80");   // 退出，触发调度
 }
-void proc_b_entry(void) {
-    while (TRUE) {
-        printk("[ProcB] pid=%d run=%d prio=%d ctr=%d\n",
-               current->pid, current->run_count,
-               current->priority, current->counter);
-        wait_intr();
+
+void consumer_entry(void) {
+    int i;
+    for (i = 0; i < 4; i++) {
+        sem_wait(&full);         // 等产品
+        sem_wait(&mutex);        // 进临界区
+
+        int item = buffer[out];
+        printk("[C%d] consume #%d <- buf[%d]\n",
+               current->pid, item, out);
+        out = (out + 1) % BUFFER_SIZE;
+        consumed++;
+
+        sem_signal(&mutex);      // 出临界区
+        sem_signal(&empty);      // 通知"有空位了"
     }
-}
-void proc_c_entry(void) {
-    while (TRUE) {
-        printk("[ProcC] pid=%d run=%d prio=%d ctr=%d\n",
-               current->pid, current->run_count,
-               current->priority, current->counter);
-        wait_intr();
-    }
+    printk("[C%d] consumer finished\n", current->pid);
+    current->state = STOPED;
+    asm volatile("int $0x80");   // 退出，触发调度
 }
 
 void os_init(void)
@@ -41,23 +64,18 @@ void os_init(void)
 
     ready_queue_init();
 
-    // 创建不同优先级的进程（priority 越小优先级越高）
-    kthread_create(proc_a_entry, "ProcA", 1);  // 最高优先级（counter=1，短时间片）
-    kthread_create(proc_b_entry, "ProcB", 3);  // 中等优先级（counter=3）
-    kthread_create(proc_c_entry, "ProcC", 5);  // 最低优先级（counter=5，长时间片）
+    // 初始化信号量
+    sem_init(&mutex, 1, "mutex");
+    sem_init(&empty, BUFFER_SIZE, "empty");
+    sem_init(&full, 0, "full");
 
-    printk("=== Counter Priority Scheduling (sched_algo=%d) ===\n", sched_algo);
+    printk("=== Producer-Consumer (buf=%d) ===\n", BUFFER_SIZE);
 
-    // 打印进程状态表
-    int i;
-    printk("%s", " PID  Name      State     Priority  Counter\n");
-    for (i = 0; i < MAX_TASKS; i++) {
-        struct task_struct *t = &task[i];
-        if (t->state != UNUSED) {
-            printk("  %d   %s       %d         %d         %d\n",
-                   t->pid, t->name, t->state, t->priority, t->counter);
-        }
-    }
+    // 2 生产者 + 2 消费者
+    kthread_create(producer_entry, "Prod1", 1);
+    kthread_create(producer_entry, "Prod2", 1);
+    kthread_create(consumer_entry, "Cons1", 1);
+    kthread_create(consumer_entry, "Cons2", 1);
 
     sti();
     while (TRUE) {

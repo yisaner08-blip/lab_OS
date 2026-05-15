@@ -124,7 +124,25 @@ PID  Name      State     Priority  Counter
 ... 全耗尽 → 重分配 → 下一轮 ...
 ```
 
-### 模块四：进程同步（待开发）
+### 模块四：进程同步 ✅
+
+- **计数信号量**：`sem_wait(P)` / `sem_signal(V)` 操作，`cli/sti` 保护临界区
+- **阻塞机制**：`int $0x80` 软中断在进程上下文中正确切换栈/上下文
+- **生产者-消费者**：2P+2C，缓冲区 5，各 4 次操作
+- **验证**：8 生产 8 消费，无死锁，正常完成
+
+```
+=== Producer-Consumer (buf=5) ===
+[P0] produce #0 -> buf[0]
+...
+[P1] produce #7 -> buf[2]
+[P1] producer finished
+[C2] consume #0 <- buf[0]
+...
+[C3] consume #7 <- buf[2]
+[C3] consumer finished
+[schedule] all processes finished or blocked, halt
+```
 
 - 计数信号量 P/V 操作
 - 生产者-消费者问题

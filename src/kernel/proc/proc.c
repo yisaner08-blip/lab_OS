@@ -130,12 +130,17 @@ void schedule(void)
             }
         }
 
-        list_del(&next->linklist); // 从就绪队列中移除选中的进程
+        if (next != NULL)
+        {
+            list_del(&next->linklist); // 从就绪队列中移除选中的进程
+        }
     }
 
     if (next == NULL)
     {
-        panic("schedule: no runnable process!");
+        // 无就绪进程，所有进程已结束或阻塞
+        printk("[schedule] all processes finished or blocked, halt\n");
+        while (TRUE) wait_intr();
     }
 
     next->state = RUNNING;
