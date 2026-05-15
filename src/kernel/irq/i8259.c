@@ -19,4 +19,6 @@ void init_i8259(void) {
 	out_byte(PORT_PIC_MS    , 0x0A);
 	out_byte(PORT_PIC_SL    , 0x68);
 	out_byte(PORT_PIC_SL    , 0x0A);
+
+	out_byte(PORT_PIC_MS + 1, 0xFE); // 放行 IRQ0（时钟中断）
 }

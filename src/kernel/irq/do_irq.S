@@ -38,7 +38,7 @@ trap:
 
 	pushl %esp
 	call irq_handle
-	addl $4, %esp
+	movl %eax, %esp  # irq_handle 返回新进程的 tf，切换到新栈
 	
 	popal
 	popl %gs

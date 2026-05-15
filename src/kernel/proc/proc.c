@@ -1,6 +1,7 @@
 /* 进程管理相关函数的实现 */
 
 #include "proc.h"
+#include "kernel.h"
 
 struct task_struct task[MAX_TASKS]; // 进程表，包含所有进程的PCB(数组形式)
 struct task_struct *current = NULL; // 当前正在运行的进程的指针
@@ -31,13 +32,16 @@ struct task_struct *kthread_create(void (*entry)(void), const char *name)
 {
     struct task_struct *p = NULL;
     int i;
-    for (i = 0; i < MAX_TASKS; i++) {
-        if (task[i].state == UNUSED) {
+    for (i = 0; i < MAX_TASKS; i++)
+    {
+        if (task[i].state == UNUSED)
+        {
             p = &task[i];
             break;
         }
     }
-    if (p == NULL) return NULL;
+    if (p == NULL)
+        return NULL;
 
     p->pid = next_pid++;
     int j;
@@ -52,31 +56,49 @@ struct task_struct *kthread_create(void (*entry)(void), const char *name)
     // 在内核栈上手工构造假的 TrapFrame
     uint32_t *top = (uint32_t *)(p->kstack + KSTACKSIZE);
 
-    *(--top) = 0x200;              // eflags (IF=1)
-    *(--top) = KSEL(SEG_KCODE);    // cs
-    *(--top) = (uint32_t)entry;    // eip
-    *(--top) = 0;                  // err
-    *(--top) = -1;                 // irq = -1 表示非真实中断
-    *(--top) = KSEL(SEG_KDATA);    // ds
-    *(--top) = KSEL(SEG_KDATA);    // es
-    *(--top) = KSEL(SEG_KDATA);    // fs
-    *(--top) = KSEL(SEG_KDATA);    // gs
+    *(--top) = 0x200;           // eflags (IF=1)
+    *(--top) = KSEL(SEG_KCODE); // cs
+    *(--top) = (uint32_t)entry; // eip
+    *(--top) = 0;               // err
+    *(--top) = -1;              // irq = -1 表示非真实中断
+    *(--top) = KSEL(SEG_KDATA); // ds
+    *(--top) = KSEL(SEG_KDATA); // es
+    *(--top) = KSEL(SEG_KDATA); // fs
+    *(--top) = KSEL(SEG_KDATA); // gs
     // pushal 保存的 8 个通用寄存器，全部初始化为 0
-    *(--top) = 0;  // eax
-    *(--top) = 0;  // ecx
-    *(--top) = 0;  // edx
-    *(--top) = 0;  // ebx
-    *(--top) = 0;  // esp_
-    *(--top) = 0;  // ebp
-    *(--top) = 0;  // esi
-    *(--top) = 0;  // edi
-
-    // dummy_tf_ptr: 其值 = edi 字段的地址，供 do_irq.S 恢复用
-    uint32_t dummy_tf_ptr = (uint32_t)top + 4;
-    *(--top) = dummy_tf_ptr;
+    *(--top) = 0; // eax
+    *(--top) = 0; // ecx
+    *(--top) = 0; // edx
+    *(--top) = 0; // ebx
+    *(--top) = 0; // esp_
+    *(--top) = 0; // ebp
+    *(--top) = 0; // esi
+    *(--top) = 0; // edi
 
     p->tf = (TrapFrame *)top;
 
     ready_queue_enqueue(p);
     return p;
+}
+
+void schedule(void) // 简单的调度函数，采用先来先服务的策略
+{
+    if (current != NULL && current->state == RUNNING)
+    {
+        // 当前进程如果还在运行态，放回就绪队列
+        current->state = RUNNABLE;
+        ready_queue_enqueue(current);
+    }
+
+    // 选下一个进程
+    struct task_struct *next = ready_queue_dequeue();
+    if (next == NULL)
+    {
+        panic("schedule: no runnable process!");
+    }
+
+    // 切换
+    next->state = RUNNING;
+    next->run_count++;
+    current = next;
 }

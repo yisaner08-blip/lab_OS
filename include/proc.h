@@ -57,5 +57,6 @@ void ready_queue_init();                                                   // �
 void ready_queue_enqueue(struct task_struct *p);                           // 将进程加入就绪队列
 struct task_struct *ready_queue_dequeue();                                 // 从就绪队列中取出一个进程
 struct task_struct *kthread_create(void (*entry)(void), const char *name); // 创建内核线程
+void schedule(void);                                                     // 进程调度
 
 #endif /* _PROC_H */

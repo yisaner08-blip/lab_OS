@@ -5,13 +5,22 @@
 #include "proc.h"
 
 void proc_a_entry(void) {
-    while (TRUE) wait_intr();
+    while (TRUE) {
+        printk("[ProcA] pid=%d running, run_count=%d\n", current->pid, current->run_count);
+        wait_intr();
+    }
 }
 void proc_b_entry(void) {
-    while (TRUE) wait_intr();
+    while (TRUE) {
+        printk("[ProcB] pid=%d running, run_count=%d\n", current->pid, current->run_count);
+        wait_intr();
+    }
 }
 void proc_c_entry(void) {
-    while (TRUE) wait_intr();
+    while (TRUE) {
+        printk("[ProcC] pid=%d running, run_count=%d\n", current->pid, current->run_count);
+        wait_intr();
+    }
 }
 
 void os_init(void)
