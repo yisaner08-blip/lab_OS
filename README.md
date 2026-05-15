@@ -102,9 +102,27 @@ PID  Name      State     Priority  Counter
 （稳定运行至 run_count=20+）
 ```
 
-### 模块三：进程调度（待开发）
+### 模块三：进程调度 ✅
 
-- 轮转调度（RR）+ Counter 优先级调度
+- **双模式调度**：`sched_algo = 0`（RR 轮转）/ `1`（Counter 优先级）
+- **Counter 算法**（Linux 0.12 风格）：每 tick 消耗 `counter`，耗尽触发调度
+- **时间片重分配**：`counter = (counter >> 1) + priority`
+- **kthread_create**：增加 `priority` 参数
+- **验证**：Counter 正确消耗/重分配，高 counter 进程连续执行更多 tick
+
+```
+=== Counter Priority Scheduling (sched_algo=1) ===
+ PID  Name      State     Priority  Counter
+  0   ProcA       1         1         1
+  1   ProcB       1         3         3
+  2   ProcC       1         5         5
+[schedule] -> ProcC pid=2 run=1 prio=5 ctr=5   ← 最大 counter 先运行
+... ProcC 连续 5 tick ...
+[schedule] -> ProcB pid=1 run=1 prio=3 ctr=3
+... ProcB 连续 3 tick ...
+[schedule] -> ProcA pid=0 run=1 prio=1 ctr=1
+... 全耗尽 → 重分配 → 下一轮 ...
+```
 
 ### 模块四：进程同步（待开发）
 

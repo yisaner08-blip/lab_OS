@@ -51,12 +51,13 @@ struct task_struct
 extern struct task_struct task[MAX_TASKS]; // 所有进程的 PCB 数组
 extern struct task_struct *current;        // 当前正在运行的进程
 extern ListHead ready_queue;               // 就绪队列头
+extern int sched_algo;                     // 调度算法：0=RR轮转, 1=Counter优先级
 
 /* ----函数声明---- */
 void ready_queue_init();                                                   // 初始化就绪队列
 void ready_queue_enqueue(struct task_struct *p);                           // 将进程加入就绪队列
 struct task_struct *ready_queue_dequeue();                                 // 从就绪队列中取出一个进程
-struct task_struct *kthread_create(void (*entry)(void), const char *name); // 创建内核线程
+struct task_struct *kthread_create(void (*entry)(void), const char *name, int priority); // 创建内核线程
 void schedule(void);                                                     // 进程调度
 
 #endif /* _PROC_H */

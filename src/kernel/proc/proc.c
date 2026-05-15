@@ -7,6 +7,7 @@ struct task_struct task[MAX_TASKS]; // 进程表，包含所有进程的PCB(数�
 struct task_struct *current = NULL; // 当前正在运行的进程的指针
 ListHead ready_queue;               // 就绪队列，包含所有处于就绪状态的进程
 static int next_pid = 0;            // 自增PID，用于分配新的进程ID
+int sched_algo = 1;                 // 调度算法：0=RR, 1=Counter优先级
 
 void ready_queue_init()
 {
@@ -28,7 +29,7 @@ struct task_struct *ready_queue_dequeue()
     return p;                                                                           // 返回被取出的进程
 }
 
-struct task_struct *kthread_create(void (*entry)(void), const char *name)
+struct task_struct *kthread_create(void (*entry)(void), const char *name, int priority)
 {
     struct task_struct *p = NULL;
     int i;
@@ -49,8 +50,8 @@ struct task_struct *kthread_create(void (*entry)(void), const char *name)
         p->name[j] = name[j];
     p->name[j] = '\0';
     p->state = RUNNABLE;
-    p->priority = MAX_PRIORITY;
-    p->counter = DEFAULT_COUNTER;
+    p->priority = priority;
+    p->counter = priority;   // counter 初始值 = priority
     p->run_count = 0;
 
     // 在内核栈上手工构造假的 TrapFrame
@@ -81,23 +82,62 @@ struct task_struct *kthread_create(void (*entry)(void), const char *name)
     return p;
 }
 
-void schedule(void) // 简单的调度函数，采用先来先服务的策略
+void schedule(void)
 {
     if (current != NULL && current->state == RUNNING)
     {
-        // 当前进程如果还在运行态，放回就绪队列
         current->state = RUNNABLE;
         ready_queue_enqueue(current);
     }
 
-    // 选下一个进程
-    struct task_struct *next = ready_queue_dequeue();
+    struct task_struct *next = NULL;
+
+    if (sched_algo == 0)
+    {
+        // RR 轮转：直接取就绪队列队首
+        next = ready_queue_dequeue();
+    }
+    else
+    {
+        // Counter 优先级调度：遍历就绪队列找 counter 最大的进程
+        ListHead *p;
+        list_foreach(p, &ready_queue)
+        {
+            struct task_struct *t = list_entry(p, struct task_struct, linklist);
+            if (next == NULL || t->counter > next->counter)
+            {
+                next = t;
+            }
+        }
+
+        if (next == NULL || next->counter <= 0)
+        {
+            // 所有进程 counter 都耗尽了，重新分配时间片
+            list_foreach(p, &ready_queue)
+            {
+                struct task_struct *t = list_entry(p, struct task_struct, linklist);
+                t->counter = (t->counter >> 1) + t->priority;
+            }
+            next = NULL;
+            // 重新找 counter 最大的进程
+            list_foreach(p, &ready_queue)
+            {
+                struct task_struct *t = list_entry(p, struct task_struct, linklist);
+                if (next == NULL || t->counter > next->counter)
+                {
+                    next = t;
+                }
+            }
+        }
+
+        list_del(&next->linklist); // 从就绪队列中移除选中的进程
+    }
+
     if (next == NULL)
     {
         panic("schedule: no runnable process!");
     }
 
-    // 切换
     next->state = RUNNING;
     next->run_count++;
     current = next;

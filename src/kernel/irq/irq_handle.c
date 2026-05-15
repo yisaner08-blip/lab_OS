@@ -27,12 +27,32 @@ TrapFrame *irq_handle(TrapFrame *tf) // 处理 IRQ 中断的函数，参数 tf �
 			out_byte(0x20, 0x20); // 发送 EOI 给主 PIC
 			if (current != NULL)
 			{
-				current->tf = tf; // 保存当前进程的 TrapFrame (保存当前进程的栈快照)
+				current->tf = tf; // 保存当前进程的 TrapFrame
+
+				if (sched_algo == 1)
+				{
+					current->counter--; // Counter 模式：每 tick 消耗一个时间片
+				}
 			}
-			schedule();		  // 调度：选择下一个进程运行
-			tf = current->tf; // 切换到下一个进程的 TrapFrame(获取新进程的栈快照)
-			printk("[schedule] -> %s pid=%d run=%d\n",
-			       current->name, current->pid, current->run_count);
+
+			if (sched_algo == 0)
+			{
+				// RR 模式：每个时钟 tick 都切换
+				schedule();
+				tf = current->tf;
+				printk("[schedule] -> %s pid=%d run=%d\n",
+				       current->name, current->pid, current->run_count);
+			}
+			else if (current == NULL || current->counter <= 0)
+			{
+				// Counter 模式：时间片耗尽（或初始调度）才切换
+				schedule();
+				tf = current->tf;
+				printk("[schedule] -> %s pid=%d run=%d prio=%d ctr=%d\n",
+				       current->name, current->pid, current->run_count,
+				       current->priority, current->counter);
+			}
+			// Counter 模式下 counter > 0：不切换，继续当前进程
 		}
 		else if (irq == 1001)
 		{						  // IRQ1 键盘中断

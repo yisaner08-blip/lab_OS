@@ -6,19 +6,25 @@
 
 void proc_a_entry(void) {
     while (TRUE) {
-        printk("[ProcA] pid=%d running, run_count=%d\n", current->pid, current->run_count);
+        printk("[ProcA] pid=%d run=%d prio=%d ctr=%d\n",
+               current->pid, current->run_count,
+               current->priority, current->counter);
         wait_intr();
     }
 }
 void proc_b_entry(void) {
     while (TRUE) {
-        printk("[ProcB] pid=%d running, run_count=%d\n", current->pid, current->run_count);
+        printk("[ProcB] pid=%d run=%d prio=%d ctr=%d\n",
+               current->pid, current->run_count,
+               current->priority, current->counter);
         wait_intr();
     }
 }
 void proc_c_entry(void) {
     while (TRUE) {
-        printk("[ProcC] pid=%d running, run_count=%d\n", current->pid, current->run_count);
+        printk("[ProcC] pid=%d run=%d prio=%d ctr=%d\n",
+               current->pid, current->run_count,
+               current->priority, current->counter);
         wait_intr();
     }
 }
@@ -34,9 +40,13 @@ void os_init(void)
     printk("%s", "hello world\n");
 
     ready_queue_init();
-    kthread_create(proc_a_entry, "ProcA");
-    kthread_create(proc_b_entry, "ProcB");
-    kthread_create(proc_c_entry, "ProcC");
+
+    // 创建不同优先级的进程（priority 越小优先级越高）
+    kthread_create(proc_a_entry, "ProcA", 1);  // 最高优先级（counter=1，短时间片）
+    kthread_create(proc_b_entry, "ProcB", 3);  // 中等优先级（counter=3）
+    kthread_create(proc_c_entry, "ProcC", 5);  // 最低优先级（counter=5，长时间片）
+
+    printk("=== Counter Priority Scheduling (sched_algo=%d) ===\n", sched_algo);
 
     // 打印进程状态表
     int i;
