@@ -83,11 +83,24 @@ PID  Name      State     Priority  Counter
  2   ProcC       1         5         4
 ```
 
-### 模块二：进程切换（开发中）
+### 模块二：进程切换 ✅
 
-- 时钟中断处理
-- do_irq.S 栈切换
-- schedule() 调度函数
+- **irq_handle.c**：改签名为 `TrapFrame*`，IRQ0 分支发送 EOI → 保存 tf → 调度 → 获取新 tf
+- **do_irq.S**：`call irq_handle` 后 `movl %eax, %esp` 完成内核栈切换
+- **schedule()**：简单轮转调度，从就绪队列取队首进程
+- **8259A**：放行 IRQ0（IMR = 0xFE）
+- **验证**：10 秒内稳定运行 20+ 轮，A→B→C 严格轮转无崩溃
+
+```
+[schedule] -> ProcA pid=0 run=1
+[ProcA] pid=0 running, run_count=1
+[schedule] -> ProcB pid=1 run=1
+[ProcB] pid=1 running, run_count=1
+[schedule] -> ProcC pid=2 run=1
+[ProcC] pid=2 running, run_count=1
+...
+（稳定运行至 run_count=20+）
+```
 
 ### 模块三：进程调度（待开发）
 
