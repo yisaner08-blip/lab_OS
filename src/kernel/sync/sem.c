@@ -17,7 +17,7 @@ void sem_wait(struct Semaphore *sem) // P 操作
 {
     cli();
     sem->value--;
-    if (sem->value < 0)
+    if (sem->value < 0) // 资源不足，阻塞当前进程 block(s->list);
     {
         // 资源不足，阻塞当前进程
         list_del(&current->linklist); // 从就绪队列移除
@@ -28,7 +28,7 @@ void sem_wait(struct Semaphore *sem) // P 操作
     }
     else
     {
-        sti();
+        sti(); // 资源足够，继续执行
     }
 }
 
@@ -36,7 +36,7 @@ void sem_signal(struct Semaphore *sem) // V 操作
 {
     cli();
     sem->value++;
-    if (sem->value <= 0)
+    if (sem->value <= 0) // 有进程在等待，唤醒队列头部的一个 wakeup(s->list);
     {
         // 有进程在等待，唤醒队列头部的一个
         if (!list_empty(&sem->wait_queue))
