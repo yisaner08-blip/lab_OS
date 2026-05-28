@@ -31,7 +31,7 @@ struct task_struct *ready_queue_dequeue() // 从就绪队列头部取出一个�
 
 struct task_struct *kthread_create(void (*entry)(void), const char *name, int priority) // 创建一个新的内核线程，entry是线程的入口函数，name是线程名称，priority是线程优先级
 {
-    struct task_struct *p = NULL;//p是指向新创建的进程的pcb的指针
+    struct task_struct *p = NULL; // p是指向新创建的进程的pcb的指针
     int i;
     for (i = 0; i < MAX_TASKS; i++) // 在进程表中寻找一个 UNUSED 状态的槽位来创建新进程
     {
@@ -44,34 +44,34 @@ struct task_struct *kthread_create(void (*entry)(void), const char *name, int pr
     if (p == NULL) // 没有找到 UNUSED 的槽位，无法创建新进程
         return NULL;
 
-    p->pid = next_pid++;//给新的进程分配一个pid
+    p->pid = next_pid++; // 给新的进程分配一个pid
     int j;
     for (j = 0; j < sizeof(p->name) - 1 && name[j] != '\0'; j++) // 将传入的线程名称复制到进程的 name 字段中，确保不超过 20 字节并以 '\0' 结尾
         p->name[j] = name[j];
     p->name[j] = '\0';
-    p->state = RUNNABLE;//设置进程状态为RUNNABLE
-    p->priority = priority;//设置进程优先级
-    p->counter = priority; // counter 初始值 = priority
-    p->run_count = 0;//进程被调度的总次数
+    p->state = RUNNABLE;    // 设置进程状态为RUNNABLE
+    p->priority = priority; // 设置进程优先级
+    p->counter = priority;  // counter 初始值 = priority
+    p->run_count = 0;       // 进程被调度的总次数
 
     // 在内核栈上手工构造假的 TrapFrame
     uint32_t *top = (uint32_t *)(p->kstack + KSTACKSIZE);
-    //p->kstack:进程p的内核栈的起始地址（底）
-    //KSTACKSIZE:内核栈的大小（字节）
-    //top:指向内核栈的栈顶（高）
+    // p->kstack:进程p的内核栈的起始地址（底）
+    // KSTACKSIZE:内核栈的大小（字节）
+    // top:指向内核栈的栈顶（高）
     //*top:指向内核栈的栈顶的值（高）
     //(uint32_t *):强制转换为unit32_t*类型，即指向uint32_t类型的指针
 
-    *(--top) = 0x200;           // eflags 0x200对应(IF=1),即开中断
+    *(--top) = 0x200; // eflags 0x200对应(IF=1),即开中断
     // EFLAGS 是 x86 CPU 的标志寄存器，存储了 CPU 的各种状态标志（如是否允许中断、运算结果是否为零等）
     *(--top) = KSEL(SEG_KCODE); // cs，SEG_KCODE在segment.h中定义，SEG_kCODE=1
-    //CS（Code Segment）是 x86 CPU 的代码段寄存器，用来指示当前正在执行哪一段内存中的代码。
+    // CS（Code Segment）是 x86 CPU 的代码段寄存器，用来指示当前正在执行哪一段内存中的代码。
     *(--top) = (uint32_t)entry; // eip
-    //eip:指令指针寄存器，存储了当前正在执行的指令的地址
-    *(--top) = 0;            // err
-    //err:错误码，用于保存异常或中断处理程序返回的错误码
-    *(--top) = -1;              // irq = -1 表示非真实中断
-    //irq:中断请求号，用于保存触发中断的设备号
+    // eip:指令指针寄存器，存储了当前正在执行的指令的地址
+    *(--top) = 0; // err
+    // err:错误码，用于保存异常或中断处理程序返回的错误码
+    *(--top) = -1; // irq = -1 表示非真实中断
+    // irq:中断请求号，用于保存触发中断的设备号
     *(--top) = KSEL(SEG_KDATA); // ds
     *(--top) = KSEL(SEG_KDATA); // es
     *(--top) = KSEL(SEG_KDATA); // fs
@@ -103,12 +103,12 @@ void schedule(void) // 调度函数，根据调度算法选择下一个要运行
 
     struct task_struct *next = NULL; // 用于保存下一个要运行的进程
 
-    if (sched_algo == 0)//RR时间片轮转:sched_algo=0
+    if (sched_algo == 0) // RR时间片轮转:sched_algo=0
     {
         // RR 轮转：直接取就绪队列队首
         next = ready_queue_dequeue();
     }
-    else//Counter优先级调度:sched_algo=1
+    else // Counter优先级调度:sched_algo=1
     {
         // Counter 优先级调度：遍历就绪队列找 counter 最大的进程
         ListHead *p;
@@ -129,8 +129,8 @@ void schedule(void) // 调度函数，根据调度算法选择下一个要运行
                 struct task_struct *t = list_entry(p, struct task_struct, linklist);
                 t->counter = (t->counter >> 1) + t->priority;
                 //>> 1 体现在有进程阻塞后保留了 counter 的场景。模块三中三个进程都是纯 CPU 死循环，counter 同步耗尽，所以 >> 1
-               //暂时看不到效果。如果引入一个会主动阻塞的 I/O 型进程，它就能保留上次未用完的 counter，>> 1
-              //的效果会立即显现。
+                // 暂时看不到效果。如果引入一个会主动阻塞的 I/O 型进程，它就能保留上次未用完的 counter，>> 1
+                // 的效果会立即显现。
             }
             next = NULL;
             // 重新找 counter 最大的进程
@@ -155,10 +155,10 @@ void schedule(void) // 调度函数，根据调度算法选择下一个要运行
         // 无就绪进程，所有进程已结束或阻塞
         printk("[schedule] all processes finished or blocked, halt\n");
         while (TRUE)
-            wait_intr();//停机，等待中断，防止CPU空转
+            wait_intr(); // 停机，等待中断，防止CPU空转
     }
 
-    next->state = RUNNING;//选择下一个进程
+    next->state = RUNNING; // 选择下一个进程
     next->run_count++;
     current = next;
 }
