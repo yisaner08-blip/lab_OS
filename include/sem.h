@@ -12,7 +12,7 @@ struct Semaphore {
     char name[16];        // 调试用名称
 };
 
-void sem_init(struct Semaphore *sem, int value, const char *name);
+void sem_init(struct Semaphore *sem, int value, const char *name);//信号量初始化
 void sem_wait(struct Semaphore *sem);    // P 操作
 void sem_signal(struct Semaphore *sem);  // V 操作
 
