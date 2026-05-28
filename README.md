@@ -2,6 +2,8 @@
 
 基于 **x86 保护模式**的操作系统内核实验框架，运行于 QEMU 模拟器。本项目为操作系统课程设计（进程管理部分）的实现。
 
+GitHub: https://github.com/yisaner08-blip/lab_OS
+
 ## 实验环境
 
 | 项目 | 说明 |
@@ -20,15 +22,17 @@ lab_OS/
 ├── boot/               # 引导加载程序（实模式 → 保护模式）
 │   ├── start.S         # BIOS 入口，加载 bootblock
 │   ├── main.c          # 读取内核 ELF 到内存
-│   └── asm.h           # 汇编宏定义
+│   ├── asm.h           # 汇编宏定义
+│   └── genboot.pl      # 生成引导块脚本
 ├── include/            # 头文件
 │   ├── proc.h          # 进程控制块（PCB）定义
 │   ├── irq.h           # 中断请求定义
 │   ├── vm.h            # 虚拟内存管理
 │   ├── x86.h           # x86 特定常量与宏
-│   ├── list.h          # 通用双向链表
 │   ├── types.h         # 基础类型定义
 │   ├── const.h         # 常量定义
+│   ├── adt/
+│   │   └── list.h      # 通用双向链表
 │   └── ...
 ├── src/
 │   ├── init/
@@ -67,6 +71,23 @@ BIOS → boot/start.S（实模式）
 - **IDT**：中断描述符表，处理时钟中断等
 - **8259A PIC**：可编程中断控制器
 
+## 演示模式
+
+四个模块通过 `src/init/main.c` 中的 `#define DEMO` 宏切换：
+
+| DEMO 值 | 演示内容 |
+|---------|---------|
+| `1` | 进程创建（不开中断，打印 PCB 状态表） |
+| `2` | 进程切换（RR 轮转，A→B→C 交替） |
+| `3` | 进程调度（Counter 优先级，priority=1/3/5） |
+| `4` | 进程同步（2P+2C 生产者-消费者，buf=5） |
+
+修改后需重新编译运行：
+
+```bash
+docker run --rm -v "$(pwd):/workspace" os-dev bash -c "make clean && make"
+```
+
 ## 已实现模块
 
 ### 模块一：进程创建
@@ -78,9 +99,9 @@ BIOS → boot/start.S（实模式）
 
 ```
 PID  Name      State     Priority  Counter
- 0   ProcA       1         5         4
- 1   ProcB       1         5         4
- 2   ProcC       1         5         4
+ 0   ProcA       1         5         5
+ 1   ProcB       1         5         5
+ 2   ProcC       1         5         5
 ```
 
 ### 模块二：进程切换 ✅
@@ -144,9 +165,6 @@ PID  Name      State     Priority  Counter
 [schedule] all processes finished or blocked, halt
 ```
 
-- 计数信号量 P/V 操作
-- 生产者-消费者问题
-
 ## 编译与运行
 
 ### 前提条件
@@ -157,11 +175,21 @@ PID  Name      State     Priority  Counter
 ### 编译
 
 ```bash
-# 使用 Docker（推荐）
-docker build --network host -t os-dev .
-docker run --rm -v "${PWD}:/workspace" os-dev bash -c "cd /workspace/lab_OS && make clean && make"
+# 首次使用：构建 Docker 镜像（只需执行一次）
+docker build -t os-dev .
 
-# 本地编译（需 GCC 9.x 32 位工具链）
+# 每次编译
+docker run --rm -v "$(pwd):/workspace" os-dev bash -c "make clean && make"
+```
+
+> Windows PowerShell 用户请使用：
+> ```powershell
+> docker run --rm -v "${PWD}:/workspace" os-dev bash -c "make clean && make"
+> ```
+
+本地编译（需 GCC 9.x 32 位工具链）：
+
+```bash
 make clean && make
 ```
 
@@ -170,6 +198,8 @@ make clean && make
 ```bash
 qemu-system-i386 -serial stdio kernel.img
 ```
+
+> Windows 用户可直接双击 `run_qemu.bat`，或修改其中的 QEMU 路径后运行。
 
 ## 许可证
 
